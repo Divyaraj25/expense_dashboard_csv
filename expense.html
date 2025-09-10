@@ -1,0 +1,620 @@
+<!--
+    Bank Statement Analyzer - Frontend Application
+    
+    This HTML file contains the main user interface for the Bank Statement Analyzer.
+    It provides a dashboard for uploading bank statements, viewing transaction data,
+    and analyzing financial metrics.
+    
+    Dependencies:
+    - Bootstrap 5.3.0: For responsive layout and UI components
+    - Font Awesome: For icons
+    - Chart.js: For data visualization
+    - PapaParse: For CSV file parsing
+    - XLSX: For Excel file parsing
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Bank Statement Analyzer - Upload and analyze your bank statements">
+    <title>Bank Statement Analyzer</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- External Libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+    <style>
+        .dashboard-card {
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            transition: transform 0.3s;
+            margin-bottom: 20px;
+        }
+        .dashboard-card:hover {
+            transform: translateY(-5px);
+        }
+        .debit {
+            color: #e74c3c;
+        }
+        .credit {
+            color: #2ecc71;
+        }
+        .upload-area {
+            border: 2px dashed #ccc;
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 20px;
+            border-radius: 10px;
+            cursor: pointer;
+        }
+        .upload-area:hover {
+            border-color: #3498db;
+        }
+        .transaction-table {
+            font-size: 0.9rem;
+        }
+        @media (max-width: 768px) {
+            .transaction-table {
+                font-size: 0.8rem;
+            }
+        }
+        .chart-container {
+            height: 300px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Main Container -->
+    <div class="container-fluid py-4">
+        <div class="row">
+            <div class="col-12">
+                <!-- Page Header -->
+                <header class="text-center mb-4">
+                    <h1>Bank Statement Analyzer</h1>
+                    <p class="text-muted">Upload and analyze your bank statements to track your finances</p>
+                </header>
+                
+                <!-- File Upload Section -->
+                <section id="upload-section" class="mb-4">
+                    <div class="card dashboard-card">
+                        <div class="card-header bg-primary text-white">
+                            <h5 class="mb-0">
+                                <i class="fas fa-upload me-2"></i>Upload Bank Statement
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="upload-area" id="uploadArea">
+                                <i class="fas fa-cloud-upload-alt fa-3x mb-3 text-muted"></i>
+                                <p>Click or drag a file to upload</p>
+                                <p class="text-muted">Supported formats: CSV, XLS, XLSX</p>
+                                <input type="file" id="fileInput" class="d-none" accept=".csv,.xls,.xlsx">
+                                <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()">Select File</button>
+                            </div>
+                            <div id="fileInfo" class="d-none mt-3">
+                                <h6>Uploaded File: <span id="fileName"></span></h6>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Financial Summary Section -->
+                <section id="summary-section" class="mb-4">
+                    <h4 class="mb-3">Financial Summary</h4>
+                    <div class="row" id="summarySection" style="display: none;">
+                        <div class="col-12 mb-3">
+                            <h4 class="text-center">Financial Summary</h4>
+                        </div>
+                        
+                        <!-- First Row -->
+                        <div class="col-md-4 col-lg-2 mb-3">
+                            <div class="card dashboard-card bg-success text-white h-100">
+                                <div class="card-body">
+                                    <h6 class="card-title">Total Credit</h6>
+                                    <h4 id="totalCredit">₹0.00</h4>
+                                    <small class="opacity-75">Inflow</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4 col-lg-2 mb-3">
+                            <div class="card dashboard-card bg-danger text-white h-100">
+                                <div class="card-body">
+                                    <h6 class="card-title">Total Debit</h6>
+                                    <h4 id="totalDebit">₹0.00</h4>
+                                    <small class="opacity-75">Outflow</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4 col-lg-2 mb-3">
+                            <div class="card dashboard-card bg-primary text-white h-100">
+                                <div class="card-body">
+                                    <h6 class="card-title">Net Flow</h6>
+                                    <h4 id="netFlow">₹0.00</h4>
+                                    <small class="opacity-75">Credit - Debit</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4 col-lg-2 mb-3">
+                            <div class="card dashboard-card bg-info text-white h-100">
+                                <div class="card-body">
+                                    <h6 class="card-title">Transactions</h6>
+                                    <h4 id="transactionsCount">0</h4>
+                                    <small class="opacity-75">Total Count</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4 col-lg-2 mb-3">
+                            <div class="card dashboard-card bg-warning text-white h-100">
+                                <div class="card-body">
+                                    <h6 class="card-title">Avg Balance</h6>
+                                    <h4 id="avgBalance">₹0.00</h4>
+                                    <small class="opacity-75">Running Average</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4 col-lg-2 mb-3">
+                            <div class="card dashboard-card bg-secondary text-white h-100">
+                                <div class="card-body">
+                                    <h6 class="card-title">Savings Rate</h6>
+                                    <h4 id="savingsRate">0%</h4>
+                                    <small class="opacity-75">(Credit - Debit) / Credit</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Data Visualization Section -->
+                <section id="visualization-section" class="mb-4">
+                    <h4 class="mb-3">Transaction Analysis</h4>
+                    <div class="row" id="chartsSection" style="display: none;">
+                        <div class="col-md-6">
+                            <div class="card dashboard-card">
+                                <div class="card-header bg-info text-white">
+                                    <h5 class="mb-0"><i class="fas fa-chart-pie me-2"></i>Debit vs Credit</h5>
+                                </div>
+                                <div class="card-body">
+                                    <canvas id="debitCreditChart" class="chart-container"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card dashboard-card">
+                                <div class="card-header bg-info text-white">
+                                    <h5 class="mb-0"><i class="fas fa-chart-line me-2"></i>Balance Trend</h5>
+                                </div>
+                                <div class="card-body">
+                                    <canvas id="balanceTrendChart" class="chart-container"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Transactions Table -->
+                <div class="card dashboard-card mt-4" id="transactionsSection" style="display: none;">
+                    <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0"><i class="fas fa-list me-2"></i>Transaction History</h5>
+                        <button class="btn btn-sm btn-light" id="exportCsv" title="Export to CSV">
+                            <i class="fas fa-download me-1"></i> Export CSV
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover transaction-table">
+                                <thead>
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>Description</th>
+                                        <th>Reference</th>
+                                        <th>Debit</th>
+                                        <th>Credit</th>
+                                        <th>Balance</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="transactionsTable">
+                                    <!-- Data will be populated here -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        /**
+         * Bank Statement Analyzer - Frontend JavaScript
+         * 
+         * This script handles:
+         * - File upload and parsing (CSV/XLSX)
+         * - Data processing and analysis
+         * - Chart rendering and updates
+         * - Table population and interaction
+         * - Data export functionality
+         */
+
+        // Global variables
+        let transactions = [];      // Store all transaction data
+        let currentChart1 = null;   // Reference to the first chart instance (Debit vs Credit)
+        let currentChart2 = null;   // Reference to the second chart instance (Balance Trend)
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // DOM Elements
+            // UI Elements
+            const uploadArea = document.getElementById('uploadArea');    // Drag and drop area
+            const fileInput = document.getElementById('fileInput');      // Hidden file input
+            const fileInfo = document.getElementById('fileInfo');        // File info display
+            const fileName = document.getElementById('fileName');        // File name display
+            
+            // Section Elements
+            const summarySection = document.getElementById('summarySection');
+            const chartsSection = document.getElementById('chartsSection');
+            const transactionsSection = document.getElementById('transactionsSection');
+            
+            // Button Elements
+            const exportCsvBtn = document.getElementById('exportCsv');
+            
+            /**
+             * Handle drag over event for file upload area
+             * @param {Event} e - The drag over event
+             */
+            uploadArea.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                uploadArea.style.borderColor = '#3498db';
+            });
+            
+            /**
+             * Handle drag leave event for file upload area
+             */
+            uploadArea.addEventListener('dragleave', function() {
+                uploadArea.style.borderColor = '#ccc';
+            });
+            
+            /**
+             * Handle file drop event
+             * @param {Event} e - The drop event
+             */
+            uploadArea.addEventListener('drop', function(e) {
+                e.preventDefault();
+                uploadArea.style.borderColor = '#ccc';
+                
+                if (e.dataTransfer.files.length) {
+                    fileInput.files = e.dataTransfer.files;
+                    handleFileUpload();
+                }
+            });
+            
+            fileInput.addEventListener('change', handleFileUpload);
+            
+            function handleFileUpload() {
+                const file = fileInput.files[0];
+                if (!file) return;
+                
+                fileName.textContent = file.name;
+                fileInfo.classList.remove('d-none');
+                
+                const extension = file.name.split('.').pop().toLowerCase();
+                
+                if (extension === 'csv') {
+                    parseCSV(file);
+                } else if (extension === 'xls' || extension === 'xlsx') {
+                    parseExcel(file);
+                } else {
+                    alert('Unsupported file format');
+                }
+            }
+            
+            function parseCSV(file) {
+                Papa.parse(file, {
+                    complete: function(results) {
+                        // Check if it's a BOI file
+                        if (file.name.toLowerCase().includes('boi')) {
+                            processBOIData(results.data);
+                        } else {
+                            // Try to process as generic CSV
+                            processGenericCSV(results.data);
+                        }
+                    },
+                    header: false
+                });
+            }
+            
+            function parseExcel(file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, {type: 'array'});
+                    
+                    // Assume first sheet
+                    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const jsonData = XLSX.utils.sheet_to_json(firstSheet, {header: 1});
+                    
+                    // Check if it's an HDFC file
+                    if (file.name.toLowerCase().includes('hdfc')) {
+                        processHDFCData(jsonData);
+                    } else {
+                        // Try to process as generic Excel
+                        processGenericExcel(jsonData);
+                    }
+                };
+                reader.readAsArrayBuffer(file);
+            }
+            
+            function processHDFCData(data) {
+                // Skip metadata rows and find the transaction table
+                let startRow = 0;
+                for (let i = 0; i < data.length; i++) {
+                    if (data[i].length > 0 && typeof data[i][0] === 'string' && 
+                        data[i][0].toLowerCase().includes('date')) {
+                        startRow = i;
+                        break;
+                    }
+                }
+                
+                // Extract headers and data
+                const transactions = [];
+                
+                for (let i = startRow + 1; i < data.length; i++) {
+                    if (data[i].length >= 7 && data[i][0] && !data[i][0].toString().includes('*')) {
+                        const transaction = {
+                            Date: data[i][0],
+                            Narration: data[i][1] || '',
+                            ChqRefNo: data[i][2] || '',
+                            ValueDt: data[i][3] || '',
+                            Withdrawal: parseFloat(data[i][4]) || 0,
+                            Deposit: parseFloat(data[i][5]) || 0,
+                            Balance: parseFloat(data[i][6]) || 0
+                        };
+                        
+                        // Determine transaction type
+                        transaction.Type = transaction.Withdrawal > 0 ? 'Debit' : 'Credit';
+                        transaction.Amount = transaction.Withdrawal > 0 ? transaction.Withdrawal : transaction.Deposit;
+                        
+                        transactions.push(transaction);
+                    }
+                }
+                
+                displayData(transactions, 'HDFC Bank');
+            }
+            
+            function processBOIData(data) {
+                // Find the start of transaction data
+                let startRow = 0;
+                for (let i = 0; i < data.length; i++) {
+                    if (data[i].length > 0 && data[i][0] === 'Sr No') {
+                        startRow = i;
+                        break;
+                    }
+                }
+                
+                // Extract headers and data
+                const transactions = [];
+                
+                for (let i = startRow + 1; i < data.length; i++) {
+                    if (data[i].length >= 6 && data[i][0] && data[i][0] !== 'Note') {
+                        const transaction = {
+                            SrNo: data[i][0],
+                            Date: data[i][1],
+                            Narration: data[i][2] || '',
+                            Debit: parseFloat(data[i][3]) || 0,
+                            Credit: parseFloat(data[i][4]) || 0,
+                            Balance: parseFloat(data[i][5]) || 0
+                        };
+                        
+                        // Determine transaction type
+                        transaction.Type = transaction.Debit > 0 ? 'Debit' : 'Credit';
+                        transaction.Amount = transaction.Debit > 0 ? transaction.Debit : transaction.Credit;
+                        
+                        transactions.push(transaction);
+                    }
+                }
+                
+                displayData(transactions, 'Bank of India');
+            }
+            
+            function displayData(transactions, bankName) {
+                currentData = transactions;
+                
+                // Calculate summary statistics
+                const totalDebit = transactions
+                    .filter(t => t.Type === 'Debit')
+                    .reduce((sum, t) => sum + t.Amount, 0);
+                
+                const totalCredit = transactions
+                    .filter(t => t.Type === 'Credit')
+                    .reduce((sum, t) => sum + t.Amount, 0);
+                
+                // Calculate additional financial metrics
+                const netFlow = totalCredit - totalDebit;
+                const savingsRate = totalCredit > 0 ? ((netFlow / totalCredit) * 100) : 0;
+                const avgBalance = transactions.reduce((sum, t) => sum + t.Balance, 0) / transactions.length;
+                
+                // Update summary cards
+                document.getElementById('totalCredit').textContent = '₹' + totalCredit.toLocaleString('en-IN', {maximumFractionDigits: 2});
+                document.getElementById('totalDebit').textContent = '₹' + totalDebit.toLocaleString('en-IN', {maximumFractionDigits: 2});
+                document.getElementById('netFlow').textContent = '₹' + netFlow.toLocaleString('en-IN', {maximumFractionDigits: 2});
+                document.getElementById('savingsRate').textContent = savingsRate.toFixed(1) + '%';
+                document.getElementById('transactionsCount').textContent = transactions.length;
+                document.getElementById('avgBalance').textContent = '₹' + avgBalance.toLocaleString('en-IN', {maximumFractionDigits: 2});
+                
+                // Show sections
+                summarySection.style.display = 'flex';
+                chartsSection.style.display = 'flex';
+                transactionsSection.style.display = 'block';
+                
+                // Create charts
+                createDebitCreditChart(totalDebit, totalCredit);
+                createBalanceTrendChart(transactions);
+                
+                // Populate transactions table
+                const tableBody = document.getElementById('transactionsTable');
+                tableBody.innerHTML = '';
+                
+                transactions.forEach(transaction => {
+                    const row = document.createElement('tr');
+                    
+                    // Format date if needed
+                    let formattedDate = transaction.Date;
+                    if (typeof transaction.Date === 'string' && transaction.Date.includes('-')) {
+                        const [day, month, year] = transaction.Date.split('-');
+                        formattedDate = `${day}/${month}/${year}`;
+                    }
+                    
+                    // Determine debit and credit values
+                    const debit = transaction.Type === 'Debit' ? transaction.Amount : '';
+                    const credit = transaction.Type === 'Credit' ? transaction.Amount : '';
+                    
+                    row.innerHTML = `
+                        <td>${formattedDate}</td>
+                        <td>${transaction.Narration || ''}</td>
+                        <td>${transaction.ChqRefNo || transaction.SrNo || ''}</td>
+                        <td class="debit">${debit ? '₹' + debit.toLocaleString('en-IN') : ''}</td>
+                        <td class="credit">${credit ? '₹' + credit.toLocaleString('en-IN') : ''}</td>
+                        <td>₹${transaction.Balance ? transaction.Balance.toLocaleString('en-IN') : '0'}</td>
+                    `;
+                    
+                    tableBody.appendChild(row);
+                });
+            }
+            
+            function createDebitCreditChart(debit, credit) {
+                const ctx = document.getElementById('debitCreditChart').getContext('2d');
+                
+                // Destroy previous chart if it exists
+                if (debitCreditChart) {
+                    debitCreditChart.destroy();
+                }
+                
+                debitCreditChart = new Chart(ctx, {
+                    type: 'pie',
+                    data: {
+                        labels: ['Debit', 'Credit'],
+                        datasets: [{
+                            data: [debit, credit],
+                            backgroundColor: ['#e74c3c', '#2ecc71'],
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'bottom'
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        return context.label + ': ₹' + context.raw.toLocaleString('en-IN');
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+            
+            function createBalanceTrendChart(transactions) {
+                const ctx = document.getElementById('balanceTrendChart').getContext('2d');
+                
+                // Destroy previous chart if it exists
+                if (balanceTrendChart) {
+                    balanceTrendChart.destroy();
+                }
+                
+                // Prepare data for the chart
+                const labels = transactions.map(t => {
+                    if (typeof t.Date === 'string') {
+                        return t.Date.split(' ')[0]; // Take only the date part if there's time
+                    }
+                    return t.Date;
+                });
+                
+                const balances = transactions.map(t => t.Balance);
+                
+                balanceTrendChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Balance',
+                            data: balances,
+                            borderColor: '#3498db',
+                            backgroundColor: 'rgba(52, 152, 219, 0.1)',
+                            fill: true,
+                            tension: 0.1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                beginAtZero: false,
+                                ticks: {
+                                    callback: function(value) {
+                                        return '₹' + value.toLocaleString('en-IN');
+                                    }
+                                }
+                            }
+                        },
+                        plugins: {
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        return 'Balance: ₹' + context.raw.toLocaleString('en-IN');
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+            
+            exportBtn.addEventListener('click', function() {
+                if (!currentData) {
+                    alert('No data to export');
+                    return;
+                }
+                
+                // Convert data to CSV
+                const headers = ['Date', 'Description', 'Reference', 'Debit', 'Credit', 'Balance'];
+                const csvData = currentData.map(transaction => {
+                    return [
+                        transaction.Date,
+                        transaction.Narration || '',
+                        transaction.ChqRefNo || transaction.SrNo || '',
+                        transaction.Type === 'Debit' ? transaction.Amount : '',
+                        transaction.Type === 'Credit' ? transaction.Amount : '',
+                        transaction.Balance
+                    ];
+                });
+                
+                // Create CSV content
+                let csvContent = headers.join(',') + '\n';
+                csvData.forEach(row => {
+                    csvContent += row.map(item => `"${item}"`).join(',') + '\n';
+                });
+                
+                // Create download link
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.setAttribute('href', url);
+                link.setAttribute('download', 'bank_statement_export.csv');
+                link.style.visibility = 'hidden';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            });
+        });
+    </script>
+</body>
+</html>
